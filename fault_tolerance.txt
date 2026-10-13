@@ -1,0 +1,100 @@
+1. Create a Virtual Machine Ubuntu-Base
+    sudo apt update
+    sudo apt upgrade -y
+    sudo apt install apache2 openssh-server rsync -y
+    sudo systemctl enable --now apache2
+    sudo systemctl enable --now ssh
+    sudo systemctl status apache2
+    curl http://localhost
+ 
+2. Create Redundant VMs:
+  On Ubuntu-Base
+  echo '<h1>Primary Web Server</h1>' | sudo tee /var/www/html/index.html
+  curl http://localhost
+  sudo poweroff ( Shutdown )
+
+  Clone the Rightclick > manage > Clone > Create full Clone
+  first one - WebServer1
+  next one - Webserver2
+  And then Loadbalancer
+
+Start WebServer1, Webserver2, Loadbalancer
+
+On WeServer1:
+    echo '<h1>Primary Web Server</h1>' | sudo tee /var/www/html/index.html
+On Webserver2:
+    echo '<h1>Backup Web Server</h1>' | sudo tee /var/www/html/index.html
+On both:
+    sudo systemctl enable --now apache2
+On Loadbalancer:
+    sudo apt update
+    sudo apt install haproxy openssh-server rsync -y
+    sudo systemctl enable --now ssh
+
+3. Configure the networking
+ In each VM run
+ hostname -I
+ On Loadbalancer:
+    curl http://WEB_SERVER1_IP
+    curl http://WEB_SERVER2_IP
+
+4. Synchronize
+On Webserver2:
+sudo systemctl enable --now ssh
+sudo systemctl status ssh
+On WebServer1:
+rsync -av /var/www/html/ USERNAME@WEB_SERVER2_IP:/tmp/web-backup/
+
+on Webserver2:
+sudo cp /tmp/web-backup/index.html /var/www/html/index.html
+
+curl http://localhost
+
+5.Take a VMware snapshot
+The manual instructs you to take snapshots before major changes so you can recover quickly if something goes wrong. 
+    Follow these steps:
+        1. Select WebServer1 in VMware Workstation.
+        2. Start the VM if it is powered off.
+        3. Open the VM → Snapshot → Take Snapshot menu. The exact location may vary by VMware version.
+        4. Enter the snapshot name:
+            Before-Fault-Tolerance-Setup
+        5. Add a description such as Apache configured before HAProxy failover testing.
+        6. Click Take Snapshot.
+    Repeat for other VMs if you want a recovery point before changing their configurations.
+
+6. Configure HAProxy for failover
+On Loadbalancer:
+    sudo nano /etc/haproxy/haproxy.cfg
+
+    
+frontend http_front
+    bind *:80
+    default_backend web_servers
+
+backend web_servers
+    balance roundrobin
+    option httpchk GET /
+    server web1 WEB_SERVER1_IP:80 check
+    server web2 WEB_SERVER2_IP:80 check
+
+Ctrl + O, press Enter, and exit with Ctrl + X
+
+sudo haproxy -c -f /etc/haproxy/haproxy.cfg
+sudo systemctl enable --now haproxy
+sudo systemctl restart haproxy
+sudo systemctl status haproxy
+
+On Loadbalancer:
+curl http://localhost
+for i in {1..6}; do curl -s http://localhost; echo; done
+
+7.Test fault tolerance by simulating a failure
+On Loadbalancer:
+    curl http://WEB_SERVER1_IP
+    curl http://WEB_SERVER2_IP
+    curl http://localhost
+On WebServer1:
+ sudo poweroff
+On Loadbalancer:
+    curl http://localhost
+    

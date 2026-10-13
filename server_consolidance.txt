@@ -1,0 +1,35 @@
+1. Start Ubuntu1 and Ubuntu2
+2. Open the Ubuntu terminal in each VM
+    top  (CPU and memory usage (q to exit))
+    free -h (Memory usage)
+    df -h (Disk usage)
+3. Ubuntu1 > consolidation host
+   Ubuntu2 > application that migrate
+4.Adjust VM resources
+    According to your manual:
+        1. Shut down the VM if required for changing its resources.
+        2. In VMware Workstation, select the VM.
+        3. Click Edit virtual machine settings.
+        4. Select Memory to adjust RAM.
+        5. Select Processors to adjust CPU allocation.
+        6. Click OK.
+5. Migrate the workload:
+    On Ubuntu2
+     sudo apt update
+     sudo apt install apache2 -y
+     echo '<h1>Consolidated Web Application</h1>' | sudo tee /var/www/html/index.html
+  
+  On Ubuntu1: (replace UBUNTU2_IP with actual value USERNAME with the username on Ubuntu2)
+    scp USERNAME@UBUNTU2_IP:/var/www/html/index.html /tmp/index.html
+    sudo apt install apache2 -y
+    sudo cp /tmp/index.html /var/www/html/index.html
+    sudo systemctl enable --now apache2
+
+6. Verify the migrated workload
+    On Ubuntu1, 
+    curl http://localhost
+
+7. Step 6: Power off the original VM
+    On Ubuntu2:
+    sudo systemctl stop apache2  (Stop Apache)
+    sudo poweroff

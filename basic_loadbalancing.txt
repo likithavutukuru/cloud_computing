@@ -1,0 +1,40 @@
+1. Open VMware Workstation Pro 17 and start a VM initially
+2. Clone Virtual Instances (VMs):
+            Rightclick > Manage > Clone > full Clone
+3. Power on all the VMs
+4.For all the VMs : 
+    sudo apt update
+    sudo apt upgrade -y
+    sudo apt install apache2 -y  (Install Apache)
+    sudo systemctl enable --now apache2   (Enable Apache)
+    sudo systemctl status apache2  (Check status) (q for exit)
+    curl http://localhost  (Test web server)
+    echo '<h1>Web Server 1</h1>' | sudo tee /var/www/html/index.html  (Customise)
+    curl http://localhost   (Test)
+5. Write the IP address of each VM
+        sudo apt install net-tools
+        ifconfig  
+6. For Loadbalancer:
+    sudo apt update
+    sudo apt install haproxy -y
+    haproxy -v (check installation)
+    sudo nano /etc/haproxy/haproxy.cfg
+       Add this at the end
+        
+frontend http_front
+    bind *:80
+    default_backend http_back
+
+backend http_back
+    balance roundrobin
+    server vm1 192.168.119.101:80 check
+    server vm2 192.168.119.102:80 check
+    server vm3 192.168.119.103:80 check
+
+Replace ip with original
+7. Ctrl+O > Enter > Ctrl + X
+8. sudo systemctl enable --now haproxy
+   sudo systemctl restart haproxy
+   sudo systemctl status haproxy
+   curl http://localhost or http://LOAD_BALANCER_IP
+   To send repeated request : for i in {1..6}; do curl -s http://localhost; echo; done
